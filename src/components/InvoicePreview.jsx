@@ -21,9 +21,9 @@ const InvoicePreview = forwardRef(function InvoicePreview({ invoice, profile }, 
     >
       {/* Header */}
       <div className="flex items-start justify-between border-b border-slate-200 pb-6">
-        <div className="flex items-start gap-4">
+        <div className="flex items-center gap-4">
           {profile?.logo_url ? (
-            <img src={profile.logo_url} alt="logo" className="h-16 w-16 rounded-lg object-cover" />
+           <img src={profile.logo_url} alt="logo" className="h-16 w-16 rounded-lg object-cover" />
           ) : (
            <img
   src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56'%3E%3Crect width='56' height='56' rx='8' fill='%231e3a5f'/%3E%3Ctext x='28' y='37' font-size='24' font-weight='bold' fill='white' text-anchor='middle'%3EB%3C/text%3E%3C/svg%3E"
@@ -33,7 +33,7 @@ const InvoicePreview = forwardRef(function InvoicePreview({ invoice, profile }, 
   style={{ display: 'block', borderRadius: '8px' }}
 />
           )}
-          <div>
+          <div className="flex flex-col justify-end h-16">
             <h2 className="text-xl font-bold text-brand">{profile?.company_name || 'Your Company'}</h2>
             <p className="mt-1 max-w-xs text-sm text-slate-500">{profile?.address || ''}</p>
             {profile?.vat_number && (

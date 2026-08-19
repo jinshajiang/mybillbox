@@ -59,12 +59,34 @@ create index if not exists invoices_user_id_idx on public.invoices(user_id);
 create index if not exists invoices_issue_date_idx on public.invoices(issue_date);
 create index if not exists invoices_created_at_idx on public.invoices(created_at desc);
 
+-- ---------- receipts ----------
+create table if not exists public.receipts (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid not null references auth.users(id) on delete cascade,
+  title        text not null,
+  date         date not null default (now())::date,
+  category     text not null default 'other',
+  amount       numeric(10,2) not null default 0,
+  note         text,
+  file_path    text not null,
+  file_name    text not null,
+  file_type    text not null,
+  file_size    bigint,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+create index if not exists receipts_user_id_idx on public.receipts(user_id);
+create index if not exists receipts_date_idx on public.receipts(date desc);
+create index if not exists receipts_category_idx on public.receipts(category);
+create index if not exists receipts_created_at_idx on public.receipts(created_at desc);
+
 -- ============================================================================
 -- Row Level Security
 -- ============================================================================
 alter table public.profiles  enable row level security;
 alter table public.clients   enable row level security;
 alter table public.invoices  enable row level security;
+alter table public.receipts  enable row level security;
 
 -- profiles: a user can read / insert / update only their own row.
 drop policy if exists "profiles_select_own" on public.profiles;
@@ -117,6 +139,23 @@ drop policy if exists "invoices_delete_own" on public.invoices;
 create policy "invoices_delete_own" on public.invoices
   for delete using (auth.uid() = user_id);
 
+-- receipts: full ownership by user.
+drop policy if exists "receipts_select_own" on public.receipts;
+create policy "receipts_select_own" on public.receipts
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "receipts_insert_own" on public.receipts;
+create policy "receipts_insert_own" on public.receipts
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "receipts_update_own" on public.receipts;
+create policy "receipts_update_own" on public.receipts
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "receipts_delete_own" on public.receipts;
+create policy "receipts_delete_own" on public.receipts
+  for delete using (auth.uid() = user_id);
+
 -- ============================================================================
 -- Auto-create a profiles row when a new auth user signs up.
 -- (Defensive: the Auth page also inserts a profile, this guarantees one exists.)
@@ -138,6 +177,24 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+-- ============================================================================
+-- Auto-update updated_at on receipts.
+-- ============================================================================
+create or replace function public.handle_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists receipts_updated_at on public.receipts;
+create trigger receipts_updated_at
+  before update on public.receipts
+  for each row execute function public.handle_updated_at();
 
 -- ============================================================================
 -- Storage bucket for company logos.
@@ -171,5 +228,50 @@ drop policy if exists "logos_delete_own" on storage.objects;
 create policy "logos_delete_own" on storage.objects
   for delete using (
     bucket_id = 'logos'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+-- ============================================================================
+-- Storage bucket for receipt uploads (images + PDFs).
+-- ============================================================================
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'receipts',
+  'receipts',
+  false,
+  20971520,
+  array['image/jpeg','image/png','image/heic','image/heif','image/webp','application/pdf']
+)
+on conflict (id) do nothing;
+
+-- Only the owning user can view / download / upload / update / delete their own receipts.
+-- Path convention: <user_id>/<receipt_id>/<filename>
+drop policy if exists "receipts_select_own" on storage.objects;
+create policy "receipts_select_own" on storage.objects
+  for select using (
+    bucket_id = 'receipts'
+    and auth.role() = 'authenticated'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+drop policy if exists "receipts_insert_own" on storage.objects;
+create policy "receipts_insert_own" on storage.objects
+  for insert with check (
+    bucket_id = 'receipts'
+    and auth.role() = 'authenticated'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+drop policy if exists "receipts_update_own" on storage.objects;
+create policy "receipts_update_own" on storage.objects
+  for update using (
+    bucket_id = 'receipts'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+drop policy if exists "receipts_delete_own" on storage.objects;
+create policy "receipts_delete_own" on storage.objects
+  for delete using (
+    bucket_id = 'receipts'
     and (storage.foldername(name))[1] = auth.uid()::text
   );

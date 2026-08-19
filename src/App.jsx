@@ -7,6 +7,9 @@ import Dashboard from './pages/Dashboard'
 import NewInvoice from './pages/NewInvoice'
 import InvoiceHistory from './pages/InvoiceHistory'
 import Settings from './pages/Settings'
+import ReceiptBox from './pages/ReceiptBox'
+import ReceiptNew from './pages/ReceiptNew'
+import ReceiptDetail from './pages/ReceiptDetail'
 import Privacy from './pages/Privacy'
 import Terms from './pages/Terms'
 import Disclaimer from './pages/Disclaimer'
@@ -33,6 +36,9 @@ export default function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/invoice/new" element={<NewInvoice />} />
         <Route path="/invoices" element={<InvoiceHistory />} />
+        <Route path="/receipts" element={<ReceiptBox />} />
+        <Route path="/receipts/new" element={<ReceiptNew />} />
+        <Route path="/receipts/:id" element={<ReceiptDetail />} />
         <Route path="/settings" element={<Settings />} />
       </Route>
 

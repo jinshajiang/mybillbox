@@ -25,3 +25,19 @@ export const supabase = createClient(
 
 // Name of the Supabase Storage bucket used for company logos.
 export const LOGO_BUCKET = 'logos'
+
+// Name of the Supabase Storage bucket used for receipt uploads.
+export const RECEIPT_BUCKET = 'receipts'
+
+// Accepted mime types for receipt uploads. Must mirror allowed_mime_types in schema.sql.
+export const RECEIPT_ALLOWED_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/heic',
+  'image/heif',
+  'image/webp',
+  'application/pdf',
+]
+
+// Max upload size per receipt file: 20 MB (in bytes).
+export const RECEIPT_MAX_SIZE = 20 * 1024 * 1024

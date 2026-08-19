@@ -1,9 +1,10 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, FilePlus2, Receipt, Settings, LogOut, X } from 'lucide-react'
+import { LayoutDashboard, FilePlus2, Receipt, FolderOpen, Settings, LogOut, X } from 'lucide-react'
 import { useAuth } from '../lib/useAuth'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/receipts', label: 'Receipt Box', icon: FolderOpen },
   { to: '/invoice/new', label: 'New Invoice', icon: FilePlus2 },
   { to: '/invoices', label: 'Invoice History', icon: Receipt },
   { to: '/settings', label: 'Settings', icon: Settings },
