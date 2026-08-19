@@ -8,16 +8,19 @@ import {
   AlertCircle,
   CheckCircle,
   ArrowLeft,
+  Send,
+  MailCheck,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/useAuth'
 import Loader from '../components/Loader'
 
-// Three modes handled by a single card on a light background.
+// Four modes handled by a single card on a light background.
 const MODES = {
   SIGNIN: 'signin',
   REGISTER: 'register',
   FORGOT: 'forgot',
+  VERIFY_SENT: 'verify_sent',
 }
 
 export default function Auth() {
@@ -48,6 +51,9 @@ export default function Auth() {
     setInfo('')
   }
 
+  // Normalize email for stable display + resend.
+  const normalizedEmail = email.trim()
+
   async function handleSignIn(e) {
     e.preventDefault()
     reset()
@@ -59,7 +65,16 @@ export default function Auth() {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     setSubmitting(false)
     if (error) {
-      setError(error.message)
+      // Supabase "email not confirmed" code / message variants
+      const isUnconfirmed =
+        error.code === 'email_not_confirmed' ||
+        /email.*(not\s*confirm|verify)|verify.*email/i.test(error.message || '')
+      if (isUnconfirmed) {
+        setError('请先验证你的邮箱，查看收件箱中的验证邮件。如果没有收到，可以重新发送。')
+        // Keep the email filled so the user can easily resend / retry.
+      } else {
+        setError(error.message)
+      }
       return
     }
     navigate(from, { replace: true })
@@ -81,7 +96,12 @@ export default function Auth() {
       return
     }
     setSubmitting(true)
-    const { data, error } = await supabase.auth.signUp({ email, password })
+    const { data, error } = await supabase.auth.signUp(
+      { email, password },
+      {
+        emailRedirectTo: window.location.origin + '/auth/callback',
+      }
+    )
     if (error) {
       setSubmitting(false)
       setError(error.message)
@@ -105,10 +125,29 @@ export default function Auth() {
       return
     }
 
-    // No session returned: email confirmation is enabled.
+    // No session returned: email confirmation is required.
     setSubmitting(false)
-    setInfo('Check your email to confirm your account.')
-    setMode(MODES.SIGNIN)
+    setMode(MODES.VERIFY_SENT)
+    setInfo(`验证邮件已发送到 ${normalizedEmail}，请查收邮件并点击验证链接完成注册。`)
+  }
+
+  async function handleResendVerification() {
+    if (!normalizedEmail) {
+      setError('请输入你的邮箱地址。')
+      return
+    }
+    reset()
+    setSubmitting(true)
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: normalizedEmail,
+    })
+    setSubmitting(false)
+    if (error) {
+      setError(error.message)
+      return
+    }
+    setInfo(`验证邮件已重新发送到 ${normalizedEmail}，请注意查收（可能在垃圾邮件文件夹中）。`)
   }
 
   async function handleForgot(e) {
@@ -148,8 +187,8 @@ export default function Auth() {
 
       <main className="flex flex-1 items-center justify-center px-4 py-10">
         <div className="card w-full max-w-md p-6 sm:p-8">
-          {/* Tabs (forgot mode hides tabs) */}
-          {mode !== MODES.FORGOT && (
+          {/* Tabs (forgot & verify-sent modes hide tabs) */}
+          {mode !== MODES.FORGOT && mode !== MODES.VERIFY_SENT && (
             <div className="mb-6 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
               <button
                 type="button"
@@ -186,11 +225,13 @@ export default function Auth() {
             {mode === MODES.SIGNIN && 'Welcome back'}
             {mode === MODES.REGISTER && 'Create your account'}
             {mode === MODES.FORGOT && 'Reset your password'}
+            {mode === MODES.VERIFY_SENT && 'Verify your email'}
           </h1>
           <p className="mt-1 text-sm text-slate-500">
             {mode === MODES.SIGNIN && 'Sign in to continue to your dashboard.'}
             {mode === MODES.REGISTER && 'Start creating VAT-compliant invoices in minutes.'}
             {mode === MODES.FORGOT && "We'll email you a link to reset your password."}
+            {mode === MODES.VERIFY_SENT && 'Almost there — click the link in the email we just sent.'}
           </p>
 
           {error && (
@@ -365,6 +406,56 @@ export default function Auth() {
                 Back to sign in
               </button>
             </form>
+          )}
+
+          {/* Verify email sent */}
+          {mode === MODES.VERIFY_SENT && (
+            <div className="mt-6 space-y-5">
+              <div className="flex flex-col items-center text-center">
+                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-accent-50 text-accent">
+                  <MailCheck className="h-8 w-8" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-base font-semibold text-slate-800">
+                    验证邮件已发送至
+                  </p>
+                  <p className="text-base font-bold text-brand break-all">
+                    {normalizedEmail || 'your email'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 space-y-2">
+                <p>请查收邮件并点击 <strong className="text-slate-800">「Verify your email」</strong> 链接完成验证。</p>
+                <ul className="list-disc pl-5 space-y-1 text-slate-500">
+                  <li>邮件可能在「垃圾邮件」或「Promotions」文件夹中</li>
+                  <li>验证链接有效时间约 24 小时</li>
+                  <li>验证完成后将自动登录并跳转到 Dashboard</li>
+                </ul>
+              </div>
+
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={handleResendVerification}
+                  disabled={submitting || !normalizedEmail}
+                  className="btn-outline w-full justify-center px-4 py-2.5 text-sm"
+                >
+                  <Send className="h-4 w-4" />
+                  {submitting ? '重新发送中…' : '重新发送验证邮件'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode(MODES.SIGNIN)
+                    reset()
+                  }}
+                  className="w-full text-center text-sm font-medium text-brand hover:underline py-1"
+                >
+                  回到登录页
+                </button>
+              </div>
+            </div>
           )}
         </div>
       </main>

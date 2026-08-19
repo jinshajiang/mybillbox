@@ -3,6 +3,7 @@ import DashboardLayout from './components/DashboardLayout'
 import ProtectedRoute from './components/ProtectedRoute'
 import Landing from './pages/Landing'
 import Auth from './pages/Auth'
+import AuthCallback from './pages/AuthCallback'
 import Dashboard from './pages/Dashboard'
 import NewInvoice from './pages/NewInvoice'
 import InvoiceHistory from './pages/InvoiceHistory'
@@ -21,6 +22,7 @@ export default function App() {
       {/* Public */}
       <Route path="/" element={<Landing />} />
       <Route path="/auth" element={<Auth />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/privacy" element={<Privacy />} />
       <Route path="/terms" element={<Terms />} />
       <Route path="/disclaimer" element={<Disclaimer />} />
